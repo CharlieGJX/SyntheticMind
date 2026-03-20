@@ -6,15 +6,6 @@
 
 Vibe-AI is an all-in-one LLM CLI tool featuring Shell Assistant, CMD & REPL Mode, RAG, AI Tools & Agents, and More. 
 
-## Install
-
-### Package Managers
-
-- **Rust Developers:** `cargo install vibe-ai`
-- **Homebrew/Linuxbrew Users:** `brew install vibe-ai`
-- **Pacman Users**: `pacman -S vibe-ai`
-- **Windows Scoop Users:** `scoop install vibe-ai`
-- **Android Termux Users:** `pkg install vibe-ai`
 
 ### Pre-built Binaries
 
