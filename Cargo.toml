@@ -1,14 +1,14 @@
 [package]
-name = "aichat"
+name = "vibe-ai"
 version = "0.30.0"
 edition = "2021"
 authors = ["sigoden <sigoden@gmail.com>"]
-description = "All-in-one LLM CLI Tool"
+description = "Herramienta LLM-CLI todo en uno"
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/sigoden/aichat"
-repository = "https://github.com/sigoden/aichat"
+homepage = "https://github.com/CharlieGJX/SyntheticMind"
+repository = "https://github.com/CharlieGJX/SyntheticMind"
 categories = ["command-line-utilities"]
-keywords = ["chatgpt", "llm", "cli", "ai", "repl"]
+keywords = ["chatgpt", "deepseek", "llm", "cli", "ai", "repl"]
 
 [dependencies]
 anyhow = "1.0.69"
@@ -93,6 +93,6 @@ pretty_assertions = "1.4.0"
 rand = "0.9.0"
 
 [profile.release]
-lto = true
+lto = false
 strip = true
-opt-level = "z"
+opt-level = 2

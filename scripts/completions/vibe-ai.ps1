@@ -1,12 +1,12 @@
 using namespace System.Management.Automation
 using namespace System.Management.Automation.Language
 
-Register-ArgumentCompleter -Native -CommandName 'aichat' -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName 'vibe-ai' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $commandElements = $commandAst.CommandElements
     $command = @(
-        'aichat'
+        'vibe-ai'
         for ($i = 1; $i -lt $commandElements.Count; $i++) {
             $element = $commandElements[$i]
             if ($element -isnot [StringConstantExpressionAst] -or
@@ -19,7 +19,7 @@ Register-ArgumentCompleter -Native -CommandName 'aichat' -ScriptBlock {
     }) -join ';'
 
     $completions = @(switch ($command) {
-        'aichat' {
+        'vibe-ai' {
             [CompletionResult]::new('-m', '-m', [CompletionResultType]::ParameterName, 'Select a LLM model')
             [CompletionResult]::new('--model', '--model', [CompletionResultType]::ParameterName, 'Select a LLM model')
             [CompletionResult]::new('--prompt', '--prompt', [CompletionResultType]::ParameterName, 'Use the system prompt')
@@ -62,7 +62,7 @@ Register-ArgumentCompleter -Native -CommandName 'aichat' -ScriptBlock {
     })
 
     function Get-AichatValues($arg) {
-        $(aichat $arg) -split '\n' | ForEach-Object { [CompletionResult]::new($_) }
+        $(vibe-ai $arg) -split '\n' | ForEach-Object { [CompletionResult]::new($_) }
     }
 
     if ($commandElements.Count -gt 1) {
