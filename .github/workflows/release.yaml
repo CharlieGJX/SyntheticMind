@@ -10,7 +10,9 @@ jobs:
     name: Publish to GitHub Release
     permissions:
       contents: write
+    runs-on: ${{matrix.os}}
     strategy:
+      fail-fast: false
       matrix:
         include:
         - target: aarch64-unknown-linux-musl
@@ -25,18 +27,9 @@ jobs:
           os: ubuntu-latest
           use-cross: true
           cargo-flags: ""
-        - target: i686-unknown-linux-musl
-          os: ubuntu-latest
-          use-cross: true
-          cargo-flags: ""
-        - target: aarch64-apple-darwin
-          os: macos-latest
-        - target: x86_64-apple-darwin
-          os: macos-latest
         - target: x86_64-pc-windows-msvc
           os: windows-latest
 
-    runs-on: ${{matrix.os}}
     env:
       BUILD_CMD: cargo
 
@@ -74,7 +67,6 @@ jobs:
     - name: Build
       shell: bash
       run: |
-        # Usamos --locked para asegurar reproducibilidad y desactivamos LTO para evitar problemas de memoria en CI (opcional)
         $BUILD_CMD build --release --target=${{ matrix.target }} ${{ matrix.cargo-flags }}
 
     - name: Build Archive
@@ -86,12 +78,9 @@ jobs:
       run: |
         set -euxo pipefail
         
-        # El nombre del binario ahora es vibe-ai (definido en Cargo.toml)
         bin_name="vibe-ai"
         dist_dir=`pwd`/dist
         
-        # Nombre simplificado para que el script de instalación lo encuentre fácilmente
-        # Por ejemplo: vibe-ai-v0.30.0-aarch64.tar.gz
         arch_name=$(echo $target | cut -d'-' -f1)
         name=$bin_name-$version-$arch_name
         
