@@ -1,4 +1,4 @@
-# Vibe-AI: All-in-one LLM CLI Tool
+# Vibe-AI: Todo-en-uno Herramienta LLM CLI
 
 [![CI](https://github.com/sigoden/vibe-ai/actions/workflows/ci.yaml/badge.svg)](https://github.com/sigoden/vibe-ai/actions/workflows/ci.yaml)
 [![Crates](https://img.shields.io/crates/v/vibe-ai.svg)](https://crates.io/crates/vibe-ai)
