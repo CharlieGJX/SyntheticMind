@@ -10,9 +10,6 @@ jobs:
     name: Publish to GitHub Release
     permissions:
       contents: write
-    outputs:
-      rc: ${{ steps.check-tag.outputs.rc }}
-
     strategy:
       matrix:
         include:
@@ -20,21 +17,11 @@ jobs:
           os: ubuntu-latest
           use-cross: true
           cargo-flags: ""
-        - target: aarch64-apple-darwin
-          os: macos-latest
-          use-cross: true
-          cargo-flags: ""
-        - target: aarch64-pc-windows-msvc
-          os: windows-latest
-          use-cross: true
-          cargo-flags: ""
-        - target: x86_64-apple-darwin
-          os: macos-latest
-          cargo-flags: ""
-        - target: x86_64-pc-windows-msvc
-          os: windows-latest
-          cargo-flags: ""
         - target: x86_64-unknown-linux-musl
+          os: ubuntu-latest
+          use-cross: true
+          cargo-flags: ""
+        - target: armv7-unknown-linux-musleabihf
           os: ubuntu-latest
           use-cross: true
           cargo-flags: ""
@@ -42,18 +29,12 @@ jobs:
           os: ubuntu-latest
           use-cross: true
           cargo-flags: ""
-        - target: i686-pc-windows-msvc
+        - target: aarch64-apple-darwin
+          os: macos-latest
+        - target: x86_64-apple-darwin
+          os: macos-latest
+        - target: x86_64-pc-windows-msvc
           os: windows-latest
-          use-cross: true
-          cargo-flags: ""
-        - target: armv7-unknown-linux-musleabihf
-          os: ubuntu-latest
-          use-cross: true
-          cargo-flags: ""
-        - target: arm-unknown-linux-musleabihf
-          os: ubuntu-latest
-          use-cross: true
-          cargo-flags: ""
 
     runs-on: ${{matrix.os}}
     env:
@@ -74,7 +55,6 @@ jobs:
           echo "rc=true" >> $GITHUB_OUTPUT
         fi
 
-
     - name: Install Rust Toolchain Components
       uses: dtolnay/rust-toolchain@stable
       with:
@@ -90,20 +70,12 @@ jobs:
       if: matrix.use-cross
       shell: bash
       run: echo "BUILD_CMD=cross" >> $GITHUB_ENV
-  
-    - name: Show Version Information (Rust, cargo, GCC)
-      shell: bash
-      run: |
-        gcc --version || true
-        rustup -V
-        rustup toolchain list
-        rustup default
-        cargo -V
-        rustc -V
       
     - name: Build
       shell: bash
-      run: $BUILD_CMD build --locked --release --target=${{ matrix.target }} ${{ matrix.cargo-flags }}
+      run: |
+        # Usamos --locked para asegurar reproducibilidad y desactivamos LTO para evitar problemas de memoria en CI (opcional)
+        $BUILD_CMD build --release --target=${{ matrix.target }} ${{ matrix.cargo-flags }}
 
     - name: Build Archive
       shell: bash
@@ -113,19 +85,27 @@ jobs:
         version:  ${{ steps.check-tag.outputs.version }}
       run: |
         set -euxo pipefail
-
-        bin=${GITHUB_REPOSITORY##*/}
+        
+        # El nombre del binario ahora es vibe-ai (definido en Cargo.toml)
+        bin_name="vibe-ai"
         dist_dir=`pwd`/dist
-        name=$bin-$version-$target
-        executable=target/$target/release/$bin
+        
+        # Nombre simplificado para que el script de instalación lo encuentre fácilmente
+        # Por ejemplo: vibe-ai-v0.30.0-aarch64.tar.gz
+        arch_name=$(echo $target | cut -d'-' -f1)
+        name=$bin_name-$version-$arch_name
+        
+        executable=target/$target/release/$bin_name
 
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           executable=$executable.exe
         fi
 
-        mkdir $dist_dir
-        cp $executable $dist_dir
-        cd $dist_dir
+        mkdir -p $dist_dir/package/completions
+        cp $executable $dist_dir/package/
+        cp scripts/completions/* $dist_dir/package/completions/
+        
+        cd $dist_dir/package
 
         if [[ "$RUNNER_OS" == "Windows" ]]; then
             archive=$dist_dir/$name.zip
@@ -133,7 +113,7 @@ jobs:
             echo "archive=dist/$name.zip" >> $GITHUB_OUTPUT
         else
             archive=$dist_dir/$name.tar.gz
-            tar -czf $archive *
+            tar -czf $archive .
             echo "archive=dist/$name.tar.gz" >> $GITHUB_OUTPUT
         fi
 
@@ -144,18 +124,3 @@ jobs:
         draft: false
         files: ${{ steps.package.outputs.archive }}
         prerelease: ${{ steps.check-tag.outputs.rc == 'true' }}
-
-  publish-crate:
-    name: Publish to crates.io
-    if: ${{ needs.release.outputs.rc == 'false' }}
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
-        run: cargo publish
