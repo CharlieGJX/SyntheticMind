@@ -144,6 +144,7 @@ pub async fn openai_chat_completions_streaming(
                 handler.text("<think>\n")?;
                 reasoning_state = 1;
             }
+            handler.reasoning(text)?;
             handler.text(text)?;
         }
         if let (Some(function), index, id) = (
@@ -232,18 +233,20 @@ pub fn openai_build_chat_completions_body(data: ChatCompletionsData, model: &Mod
         stream,
     } = data;
 
-    let messages_len = messages.len();
+    let mut has_thinking = model.data().thinking.is_some() || model.patch().and_then(|v| v.get("body").and_then(|v| v.get("thinking"))).is_some();
     let messages: Vec<Value> = messages
         .into_iter()
         .enumerate()
-        .flat_map(|(i, message)| {
-            let Message { role, content } = message;
+        .flat_map(|(_i, message)| {
+            let Message { role, content, reasoning_content } = message;
             match content {
                 MessageContent::ToolCalls(MessageContentToolCalls {
                     tool_results,
                     text: _,
+                    reasoning_content: tool_reasoning_content,
                     sequence,
                 }) => {
+                    let reasoning_content = reasoning_content.or(tool_reasoning_content);
                     if !sequence {
                         let tool_calls: Vec<_> = tool_results
                             .iter()
@@ -258,9 +261,11 @@ pub fn openai_build_chat_completions_body(data: ChatCompletionsData, model: &Mod
                                 })
                             })
                             .collect();
-                        let mut messages = vec![
-                            json!({ "role": MessageRole::Assistant, "tool_calls": tool_calls }),
-                        ];
+                        let mut assistant_msg = json!({ "role": MessageRole::Assistant, "tool_calls": tool_calls });
+                        if let Some(reasoning) = reasoning_content {
+                            assistant_msg["reasoning_content"] = reasoning.into();
+                        }
+                        let mut messages = vec![assistant_msg];
                         for tool_result in tool_results {
                             messages.push(json!({
                                 "role": "tool",
@@ -271,20 +276,24 @@ pub fn openai_build_chat_completions_body(data: ChatCompletionsData, model: &Mod
                         messages
                     } else {
                         tool_results.into_iter().flat_map(|tool_result| {
+                            let mut assistant_msg = json!({
+                                "role": MessageRole::Assistant,
+                                "tool_calls": [
+                                    {
+                                        "id": tool_result.call.id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tool_result.call.name,
+                                            "arguments": tool_result.call.arguments.to_string(),
+                                        },
+                                    }
+                                ]
+                            });
+                            if let Some(reasoning) = &reasoning_content {
+                                assistant_msg["reasoning_content"] = reasoning.clone().into();
+                            }
                             vec![
-                                json!({
-                                    "role": MessageRole::Assistant,
-                                    "tool_calls": [
-                                        {
-                                            "id": tool_result.call.id,
-                                            "type": "function",
-                                            "function": {
-                                                "name": tool_result.call.name,
-                                                "arguments": tool_result.call.arguments.to_string(),
-                                            },
-                                        }
-                                    ]
-                                }),
+                                assistant_msg,
                                 json!({
                                     "role": "tool",
                                     "content": tool_result.output.to_string(),
@@ -295,11 +304,25 @@ pub fn openai_build_chat_completions_body(data: ChatCompletionsData, model: &Mod
                         }).collect()
                     }
                 }
-                MessageContent::Text(text) if role.is_assistant() && i != messages_len - 1 => {
-                    vec![json!({ "role": role, "content": strip_think_tag(&text) }
-                    )]
+                MessageContent::Text(text) => {
+                    let mut obj = json!({ "role": role });
+                    if role.is_assistant() {
+                        obj["content"] = strip_think_tag(&text).into();
+                        if let Some(reasoning) = reasoning_content {
+                            obj["reasoning_content"] = reasoning.into();
+                        }
+                    } else {
+                        obj["content"] = text.into();
+                    }
+                    vec![obj]
                 }
-                _ => vec![json!({ "role": role, "content": content })],
+                _ => {
+                    let mut obj = json!({ "role": role, "content": content });
+                    if let Some(reasoning) = reasoning_content {
+                        obj["reasoning_content"] = reasoning.into();
+                    }
+                    vec![obj]
+                },
             }
         })
         .collect();
@@ -308,6 +331,14 @@ pub fn openai_build_chat_completions_body(data: ChatCompletionsData, model: &Mod
         "model": &model.real_name(),
         "messages": messages,
     });
+
+    if let Some(v) = &model.data().thinking {
+        body["thinking"] = v.clone();
+        has_thinking = true;
+    }
+    if let Some(v) = &model.data().reasoning_effort {
+        body["reasoning_effort"] = v.clone().into();
+    }
 
     if let Some(v) = model.max_tokens_param() {
         if model
@@ -320,11 +351,13 @@ pub fn openai_build_chat_completions_body(data: ChatCompletionsData, model: &Mod
             body["max_tokens"] = v.into();
         }
     }
-    if let Some(v) = temperature {
-        body["temperature"] = v.into();
-    }
-    if let Some(v) = top_p {
-        body["top_p"] = v.into();
+    if !has_thinking {
+        if let Some(v) = temperature {
+            body["temperature"] = v.into();
+        }
+        if let Some(v) = top_p {
+            body["top_p"] = v.into();
+        }
     }
     if stream {
         body["stream"] = true.into();
@@ -391,6 +424,7 @@ pub fn openai_extract_chat_completions(data: &Value) -> Result<ChatCompletionsOu
     };
     let output = ChatCompletionsOutput {
         text,
+        reasoning_content: if reasoning.is_empty() { None } else { Some(reasoning.to_string()) },
         tool_calls,
         id: data["id"].as_str().map(|v| v.to_string()),
         input_tokens: data["usage"]["prompt_tokens"].as_u64(),

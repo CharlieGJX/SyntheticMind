@@ -467,10 +467,23 @@ impl Session {
     }
 
     pub fn add_message(&mut self, input: &Input, output: &str) -> Result<()> {
+        self.add_message_with_reasoning(input, output, None)
+    }
+
+    pub fn add_message_with_reasoning(
+        &mut self,
+        input: &Input,
+        output: &str,
+        reasoning_content: Option<&str>,
+    ) -> Result<()> {
         if input.continue_output().is_some() {
             if let Some(message) = self.messages.last_mut() {
                 if let MessageContent::Text(text) = &mut message.content {
                     *text = format!("{text}{output}");
+                }
+                if let Some(reasoning) = reasoning_content {
+                    let r = message.reasoning_content.get_or_insert_with(String::new);
+                    r.push_str(reasoning);
                 }
             }
         } else if input.regenerate() {
@@ -478,6 +491,7 @@ impl Session {
                 if let MessageContent::Text(text) = &mut message.content {
                     *text = output.to_string();
                 }
+                message.reasoning_content = reasoning_content.map(|v| v.to_string());
             }
         } else {
             if self.messages.is_empty() {
@@ -498,9 +512,10 @@ impl Session {
                     MessageContent::ToolCalls(tool_calls.clone()),
                 ))
             }
-            self.messages.push(Message::new(
+            self.messages.push(Message::new_with_reasoning(
                 MessageRole::Assistant,
                 MessageContent::Text(output.to_string()),
+                reasoning_content.map(|v| v.to_string()),
             ));
         }
         self.dirty = true;

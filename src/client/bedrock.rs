@@ -336,7 +336,7 @@ fn build_chat_completions_body(data: ChatCompletionsData, model: &Model) -> Resu
         .into_iter()
         .enumerate()
         .flat_map(|(i, message)| {
-            let Message { role, content } = message;
+            let Message { role, content, .. } = message;
             match content {
                 MessageContent::Text(text) if role.is_assistant() && i != messages_len - 1 => {
                     vec![json!({ "role": role, "content": [ { "text": strip_think_tag(&text) } ] })]
@@ -520,6 +520,7 @@ fn extract_chat_completions(data: &Value) -> Result<ChatCompletionsOutput> {
 
     let output = ChatCompletionsOutput {
         text,
+        reasoning_content: None,
         tool_calls,
         id: None,
         input_tokens: data["usage"]["inputTokens"].as_u64(),

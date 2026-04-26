@@ -174,7 +174,7 @@ pub fn claude_build_chat_completions_body(
         .into_iter()
         .enumerate()
         .flat_map(|(i, message)| {
-            let Message { role, content } = message;
+            let Message { role, content, .. } = message;
             match content {
                 MessageContent::Text(text) if role.is_assistant() && i != messages_len - 1 => {
                     vec![json!({ "role": role, "content": strip_think_tag(&text) })]
@@ -343,7 +343,8 @@ pub fn claude_extract_chat_completions(data: &Value) -> Result<ChatCompletionsOu
     }
 
     let output = ChatCompletionsOutput {
-        text: text.to_string(),
+        text,
+        reasoning_content: None,
         tool_calls,
         id: data["id"].as_str().map(|v| v.to_string()),
         input_tokens: data["usage"]["input_tokens"].as_u64(),

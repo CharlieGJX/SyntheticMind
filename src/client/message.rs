@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct Message {
     pub role: MessageRole,
     pub content: MessageContent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
 }
 
 impl Default for Message {
@@ -15,13 +17,30 @@ impl Default for Message {
         Self {
             role: MessageRole::User,
             content: MessageContent::Text(String::new()),
+            reasoning_content: None,
         }
     }
 }
 
 impl Message {
     pub fn new(role: MessageRole, content: MessageContent) -> Self {
-        Self { role, content }
+        Self {
+            role,
+            content,
+            reasoning_content: None,
+        }
+    }
+
+    pub fn new_with_reasoning(
+        role: MessageRole,
+        content: MessageContent,
+        reasoning_content: Option<String>,
+    ) -> Self {
+        Self {
+            role,
+            content,
+            reasoning_content,
+        }
     }
 
     pub fn merge_system(&mut self, system: MessageContent) {
@@ -182,22 +201,34 @@ pub struct ImageUrl {
 pub struct MessageContentToolCalls {
     pub tool_results: Vec<ToolResult>,
     pub text: String,
+    pub reasoning_content: Option<String>,
     pub sequence: bool,
 }
 
 impl MessageContentToolCalls {
-    pub fn new(tool_results: Vec<ToolResult>, text: String) -> Self {
+    pub fn new(
+        tool_results: Vec<ToolResult>,
+        text: String,
+        reasoning_content: Option<String>,
+    ) -> Self {
         Self {
             tool_results,
             text,
+            reasoning_content,
             sequence: false,
         }
     }
 
-    pub fn merge(&mut self, tool_results: Vec<ToolResult>, _text: String) {
+    pub fn merge(
+        &mut self,
+        tool_results: Vec<ToolResult>,
+        _text: String,
+        _reasoning_content: Option<String>,
+    ) -> &mut Self {
         self.tool_results.extend(tool_results);
         self.text.clear();
         self.sequence = true;
+        self
     }
 }
 
@@ -214,6 +245,7 @@ pub fn patch_messages(messages: &mut Vec<Message>, model: &Model) {
                 Message {
                     role: MessageRole::System,
                     content: MessageContent::Text(prefix.to_string()),
+                    reasoning_content: None,
                 },
             );
         }

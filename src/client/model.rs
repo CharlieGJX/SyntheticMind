@@ -238,11 +238,15 @@ impl Model {
             .enumerate()
             .map(|(i, v)| match &v.content {
                 MessageContent::Text(text) => {
-                    if v.role.is_assistant() && i != messages_len - 1 {
+                    let mut tokens = if v.role.is_assistant() && i != messages_len - 1 {
                         estimate_token_length(&strip_think_tag(text))
                     } else {
                         estimate_token_length(text)
+                    };
+                    if let Some(reasoning) = &v.reasoning_content {
+                        tokens += estimate_token_length(reasoning);
                     }
+                    tokens
                 }
                 MessageContent::Array(list) => list
                     .iter()
@@ -307,6 +311,10 @@ pub struct ModelData {
     pub output_price: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patch: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
 
     // chat-only properties
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -735,19 +735,19 @@ async fn ask(
 
     let client = input.create_client()?;
     config.write().before_chat_completion(&input)?;
-    let (output, tool_results) = if input.stream() {
+    let (output, reasoning_content, tool_results) = if input.stream() {
         call_chat_completions_streaming(&input, client.as_ref(), abort_signal.clone()).await?
     } else {
         call_chat_completions(&input, true, false, client.as_ref(), abort_signal.clone()).await?
     };
     config
         .write()
-        .after_chat_completion(&input, &output, &tool_results)?;
+        .after_chat_completion(&input, &output, reasoning_content.as_deref(), &tool_results)?;
     if !tool_results.is_empty() {
         ask(
             config,
             abort_signal,
-            input.merge_tool_results(output, tool_results),
+            input.merge_tool_results(output, reasoning_content, tool_results),
             false,
         )
         .await

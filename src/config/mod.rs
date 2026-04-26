@@ -1104,6 +1104,7 @@ impl Config {
                     input,
                     output,
                     continuous,
+                    ..
                 }) = &self.last_message
                 {
                     if (*continuous && !output.is_empty())
@@ -2055,14 +2056,19 @@ impl Config {
         &mut self,
         input: &Input,
         output: &str,
+        reasoning_content: Option<&str>,
         tool_results: &[ToolResult],
     ) -> Result<()> {
         if !tool_results.is_empty() {
             return Ok(());
         }
-        self.last_message = Some(LastMessage::new(input.clone(), output.to_string()));
+        self.last_message = Some(LastMessage::new_with_reasoning(
+            input.clone(),
+            output.to_string(),
+            reasoning_content.map(|v| v.to_string()),
+        ));
         if !self.dry_run {
-            self.save_message(input, output)?;
+            self.save_message_with_reasoning(input, output, reasoning_content)?;
         }
         Ok(())
     }
@@ -2074,10 +2080,19 @@ impl Config {
     }
 
     fn save_message(&mut self, input: &Input, output: &str) -> Result<()> {
+        self.save_message_with_reasoning(input, output, None)
+    }
+
+    fn save_message_with_reasoning(
+        &mut self,
+        input: &Input,
+        output: &str,
+        reasoning_content: Option<&str>,
+    ) -> Result<()> {
         let mut input = input.clone();
         input.clear_patch();
         if let Some(session) = input.session_mut(&mut self.session) {
-            session.add_message(&input, output)?;
+            session.add_message_with_reasoning(&input, output, reasoning_content)?;
             return Ok(());
         }
 
@@ -2120,10 +2135,15 @@ impl Config {
             }
             None => String::new(),
         };
-        let output = format!(
-            "# CHAT: {summary} [{now}]{scope}\n{raw_input}\n--------\n{tool_calls}{output}\n--------\n\n",
+        let output_with_reasoning = if let Some(reasoning) = reasoning_content {
+            format!("<reasoning>\n{reasoning}\n</reasoning>\n\n{output}")
+        } else {
+            output.to_string()
+        };
+        let output_formatted = format!(
+            "# CHAT: {summary} [{now}]{scope}\n{raw_input}\n--------\n{tool_calls}{output_with_reasoning}\n--------\n\n",
         );
-        file.write_all(output.as_bytes())
+        file.write_all(output_formatted.as_bytes())
             .with_context(|| "Failed to save message")
     }
 
@@ -2567,6 +2587,7 @@ pub struct ModelsOverride {
 pub struct LastMessage {
     pub input: Input,
     pub output: String,
+    pub reasoning_content: Option<String>,
     pub continuous: bool,
 }
 
@@ -2575,6 +2596,20 @@ impl LastMessage {
         Self {
             input,
             output,
+            reasoning_content: None,
+            continuous: true,
+        }
+    }
+
+    pub fn new_with_reasoning(
+        input: Input,
+        output: String,
+        reasoning_content: Option<String>,
+    ) -> Self {
+        Self {
+            input,
+            output,
+            reasoning_content,
             continuous: true,
         }
     }

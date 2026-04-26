@@ -298,6 +298,7 @@ fn gemini_extract_chat_completions_text(data: &Value) -> Result<ChatCompletionsO
     }
     let output = ChatCompletionsOutput {
         text,
+        reasoning_content: None,
         tool_calls,
         id: None,
         input_tokens: data["usageMetadata"]["promptTokenCount"].as_u64(),
@@ -324,7 +325,7 @@ pub fn gemini_build_chat_completions_body(
     let contents: Vec<Value> = messages
         .into_iter()
         .flat_map(|message| {
-            let Message { role, content } = message;
+            let Message { role, content, .. } = message;
             let role = match role {
                 MessageRole::User => "user",
                 _ => "model",

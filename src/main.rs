@@ -202,7 +202,7 @@ async fn start_directive(
     let client = input.create_client()?;
     let extract_code = !*IS_STDOUT_TERMINAL && code_mode;
     config.write().before_chat_completion(&input)?;
-    let (output, tool_results) = if !input.stream() || extract_code {
+    let (output, reasoning_content, tool_results) = if !input.stream() || extract_code {
         call_chat_completions(
             &input,
             true,
@@ -214,22 +214,25 @@ async fn start_directive(
     } else {
         call_chat_completions_streaming(&input, client.as_ref(), abort_signal.clone()).await?
     };
-    config
-        .write()
-        .after_chat_completion(&input, &output, &tool_results)?;
+    config.write().after_chat_completion(
+        &input,
+        &output,
+        reasoning_content.as_deref(),
+        &tool_results,
+    )?;
 
     if !tool_results.is_empty() {
         start_directive(
             config,
-            input.merge_tool_results(output, tool_results),
+            input.merge_tool_results(output, reasoning_content, tool_results),
             code_mode,
             abort_signal,
         )
-        .await?;
+        .await
+    } else {
+        config.write().exit_session()?;
+        Ok(())
     }
-
-    config.write().exit_session()?;
-    Ok(())
 }
 
 async fn start_interactive(config: &GlobalConfig) -> Result<()> {
@@ -246,12 +249,12 @@ async fn shell_execute(
 ) -> Result<()> {
     let client = input.create_client()?;
     config.write().before_chat_completion(&input)?;
-    let (eval_str, _) =
+    let (eval_str, reasoning_content, _) =
         call_chat_completions(&input, false, true, client.as_ref(), abort_signal.clone()).await?;
 
     config
         .write()
-        .after_chat_completion(&input, &eval_str, &[])?;
+        .after_chat_completion(&input, &eval_str, reasoning_content.as_deref(), &[])?;
     if eval_str.is_empty() {
         bail!("No command generated");
     }

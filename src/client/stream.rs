@@ -12,6 +12,7 @@ pub struct SseHandler {
     sender: UnboundedSender<SseEvent>,
     abort_signal: AbortSignal,
     buffer: String,
+    reasoning_buffer: String,
     tool_calls: Vec<ToolCall>,
 }
 
@@ -21,6 +22,7 @@ impl SseHandler {
             sender,
             abort_signal,
             buffer: String::new(),
+            reasoning_buffer: String::new(),
             tool_calls: Vec::new(),
         }
     }
@@ -41,6 +43,14 @@ impl SseHandler {
             }
             return Err(err);
         }
+        Ok(())
+    }
+
+    pub fn reasoning(&mut self, text: &str) -> Result<()> {
+        if text.is_empty() {
+            return Ok(());
+        }
+        self.reasoning_buffer.push_str(text);
         Ok(())
     }
 
@@ -69,11 +79,19 @@ impl SseHandler {
         &self.tool_calls
     }
 
-    pub fn take(self) -> (String, Vec<ToolCall>) {
+    pub fn take(self) -> (String, Option<String>, Vec<ToolCall>) {
         let Self {
-            buffer, tool_calls, ..
+            buffer,
+            reasoning_buffer,
+            tool_calls,
+            ..
         } = self;
-        (buffer, tool_calls)
+        let reasoning = if reasoning_buffer.is_empty() {
+            None
+        } else {
+            Some(reasoning_buffer)
+        };
+        (buffer, reasoning, tool_calls)
     }
 }
 
