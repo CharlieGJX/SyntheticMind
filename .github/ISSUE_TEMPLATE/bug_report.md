@@ -19,17 +19,17 @@ assignees: ''
 <!-- A clear and concise description of what you expected to happen. -->
 
 **Logs**
-<!-- If applicable, Attach relevant log outputs that can help diagnose the issue, see https://github.com/sigoden/aichat/wiki/FAQ#how-to-log-or-debug for logging. -->
+<!-- If applicable, Attach relevant log outputs that can help diagnose the issue, see https://github.com/CharlieGJX/SyntheticMind/wiki/FAQ#how-to-log-or-debug for logging. -->
 
 **Screenshots**
 <!-- If applicable, add screenshots to help explain your problem. -->
 
 **Configuration**
-<!-- Please run `aichat --info` and paste the output -->
+<!-- Please run `vibe-ai --info` and paste the output -->
 
 **Environment (please complete the following information):**
 - os version: [e.g. Ubuntu 20.04]
-- aichat version: [e.g. 0.9.0]
+- vibe-ai version: [e.g. 0.32.0]
 - terminal version: [e.g. GNOME Terminal 3.44.0]
 
 **Additional context**

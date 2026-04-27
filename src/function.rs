@@ -171,6 +171,34 @@ impl ToolCall {
     }
 
     pub fn eval(&self, config: &GlobalConfig) -> Result<Value> {
+        if self.name.starts_with("mcp__") {
+            let parts: Vec<&str> = self.name.splitn(3, "__").collect();
+            if parts.len() < 3 {
+                bail!("Invalid MCP tool name: {}", self.name);
+            }
+            let server_name = parts[1];
+            let tool_name = parts[2];
+            
+            let manager = config.read().mcp_server_manager.clone().ok_or_else(|| anyhow!("MCP server manager not initialized"))?;
+            
+            let json_data = if self.arguments.is_object() {
+                self.arguments.clone()
+            } else if let Some(arguments) = self.arguments.as_str() {
+                serde_json::from_str(arguments).map_err(|_| {
+                    anyhow!("The MCP call '{}' has invalid arguments: {}", self.name, arguments)
+                })?
+            } else {
+                self.arguments.clone()
+            };
+
+            let handle = tokio::runtime::Handle::current();
+            let result = tokio::task::block_in_place(|| {
+                handle.block_on(manager.call_tool(server_name, tool_name, json_data))
+            })?;
+            
+            return Ok(result["content"].clone());
+        }
+
         let (call_name, cmd_name, mut cmd_args, envs) = match &config.read().agent {
             Some(agent) => self.extract_call_config_from_agent(config, agent)?,
             None => self.extract_call_config_from_config(config)?,

@@ -1,6 +1,6 @@
 # 🚀 Guía de Instalación de vibe-ai en Termux
 
-Esta guía te permitirá instalar **vibe-ai** (un fork potente de aichat) en tu entorno de Android mediante Termux.
+Esta guía te permitirá instalar **vibe-ai** (un fork potente de SyntheticMind) en tu entorno de Android mediante Termux.
 
 ## 1. Requisitos Previos
 

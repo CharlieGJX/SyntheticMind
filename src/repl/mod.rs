@@ -31,7 +31,7 @@ use std::{env, process};
 
 const MENU_NAME: &str = "completion_menu";
 
-static REPL_COMMANDS: LazyLock<[ReplCommand; 36]> = LazyLock::new(|| {
+static REPL_COMMANDS: LazyLock<[ReplCommand; 37]> = LazyLock::new(|| {
     [
         ReplCommand::new(".help", "Show this help guide", AssertState::pass()),
         ReplCommand::new(".info", "Show system info", AssertState::pass()),
@@ -150,6 +150,7 @@ static REPL_COMMANDS: LazyLock<[ReplCommand; 36]> = LazyLock::new(|| {
             "Show citation sources used in last query",
             AssertState::True(StateFlags::RAG),
         ),
+        ReplCommand::new(".mcp", "Manage MCP servers", AssertState::pass()),
         ReplCommand::new(
             ".info rag",
             "Show RAG info",
@@ -449,6 +450,38 @@ pub async fn run_repl_command(
             ".rag" => {
                 Config::use_rag(config, args, abort_signal.clone()).await?;
             }
+            ".mcp" => match args {
+                Some("reload") => {
+                    {
+                        let mut config_guard = config.write();
+                        config_guard.mcp_tools.clear();
+                        config_guard.mcp_server_manager = None;
+                    }
+                    Config::init_mcp(config.clone()).await?;
+                    println!("✓ MCP servers reloaded.");
+                }
+                Some("status") | None => {
+                    let manager = config.read().mcp_server_manager.clone();
+                    if let Some(manager) = manager {
+                        let tools = manager.list_all_tools().await?;
+                        if tools.is_empty() {
+                            println!("No MCP tools available.");
+                        } else {
+                            for (server, server_tools) in tools {
+                                println!("Server: {}", server);
+                                for tool in server_tools {
+                                    println!("  - {}: {}", tool.name, tool.description);
+                                }
+                            }
+                        }
+                    } else {
+                        println!("MCP server manager not initialized.");
+                    }
+                }
+                Some(_) => {
+                    println!("Usage: .mcp [status|reload]");
+                }
+            },
             ".agent" => match split_first_arg(args) {
                 Some((agent_name, args)) => {
                     let (new_args, _) = split_args_text(args.unwrap_or_default(), cfg!(windows));

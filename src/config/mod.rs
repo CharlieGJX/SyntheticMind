@@ -15,6 +15,7 @@ use crate::client::{
     Model, ModelType, ProviderModels, OPENAI_COMPATIBLE_PROVIDERS,
 };
 use crate::function::{FunctionDeclaration, Functions, ToolResult};
+use crate::mcp::{McpClient, McpServerManager};
 use crate::rag::Rag;
 use crate::render::{MarkdownRender, RenderOptions};
 use crate::repl::{run_repl_command, split_args_text};
@@ -96,6 +97,15 @@ const RIGHT_PROMPT: &str = "{color.purple}{?session {?consume_tokens {consume_to
 
 static EDITOR: OnceLock<Option<String>> = OnceLock::new();
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct McpServerConfig {
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -116,6 +126,8 @@ pub struct Config {
     pub function_calling: bool,
     pub mapping_tools: IndexMap<String, String>,
     pub use_tools: Option<String>,
+    #[serde(default)]
+    pub mcp_servers: HashMap<String, McpServerConfig>,
 
     pub repl_prelude: Option<String>,
     pub cmd_prelude: Option<String>,
@@ -172,6 +184,10 @@ pub struct Config {
     pub rag: Option<Arc<Rag>>,
     #[serde(skip)]
     pub agent: Option<Agent>,
+    #[serde(skip)]
+    pub mcp_server_manager: Option<Arc<McpServerManager>>,
+    #[serde(skip)]
+    pub mcp_tools: Vec<FunctionDeclaration>,
 }
 
 impl Default for Config {
@@ -192,6 +208,7 @@ impl Default for Config {
             function_calling: true,
             mapping_tools: Default::default(),
             use_tools: None,
+            mcp_servers: Default::default(),
 
             repl_prelude: None,
             cmd_prelude: None,
@@ -236,6 +253,8 @@ impl Default for Config {
             session: None,
             rag: None,
             agent: None,
+            mcp_server_manager: None,
+            mcp_tools: vec![],
         }
     }
 }
@@ -284,6 +303,36 @@ impl Config {
             ret?;
         }
         Ok(config)
+    }
+
+    pub async fn init_mcp(config: GlobalConfig) -> Result<()> {
+        let mcp_servers = {
+            let config_guard = config.read();
+            if config_guard.mcp_servers.is_empty() {
+                return Ok(());
+            }
+            config_guard.mcp_servers.clone()
+        };
+
+        let manager = McpServerManager::new();
+        let mut mcp_tools = vec![];
+        
+        for (name, server_config) in &mcp_servers {
+            let client = McpClient::spawn(&server_config.command, &server_config.args, &server_config.env)?;
+            client.initialize().await?;
+            let tools = client.list_tools().await?;
+            for tool in tools {
+                mcp_tools.push(tool.to_declaration(name));
+            }
+            manager.add_client(name, client).await;
+        }
+
+        {
+            let mut config_guard = config.write();
+            config_guard.mcp_server_manager = Some(Arc::new(manager));
+            config_guard.mcp_tools = mcp_tools;
+        }
+        Ok(())
     }
 
     pub fn config_dir() -> PathBuf {
@@ -1655,25 +1704,32 @@ impl Config {
         if self.function_calling {
             if let Some(use_tools) = role.use_tools() {
                 let mut tool_names: HashSet<String> = Default::default();
-                let declaration_names: HashSet<String> = self
+                let local_declaration_names: HashSet<String> = self
                     .functions
                     .declarations()
                     .iter()
                     .map(|v| v.name.to_string())
                     .collect();
+                let mcp_declaration_names: HashSet<String> = self
+                    .mcp_tools
+                    .iter()
+                    .map(|v| v.name.to_string())
+                    .collect();
+                
                 if use_tools == "all" {
-                    tool_names.extend(declaration_names);
+                    tool_names.extend(local_declaration_names.clone());
+                    tool_names.extend(mcp_declaration_names.clone());
                 } else {
                     for item in use_tools.split(',') {
                         let item = item.trim();
                         if let Some(values) = self.mapping_tools.get(item) {
-                            tool_names.extend(
-                                values
-                                    .split(',')
-                                    .map(|v| v.to_string())
-                                    .filter(|v| declaration_names.contains(v)),
-                            )
-                        } else if declaration_names.contains(item) {
+                            for v in values.split(',') {
+                                let v = v.to_string();
+                                if local_declaration_names.contains(&v) || mcp_declaration_names.contains(&v) {
+                                    tool_names.insert(v);
+                                }
+                            }
+                        } else if local_declaration_names.contains(item) || mcp_declaration_names.contains(item) {
                             tool_names.insert(item.to_string());
                         }
                     }
@@ -1682,14 +1738,21 @@ impl Config {
                     .functions
                     .declarations()
                     .iter()
-                    .filter_map(|v| {
-                        if tool_names.contains(&v.name) {
-                            Some(v.clone())
-                        } else {
-                            None
-                        }
-                    })
+                    .filter(|v| tool_names.contains(&v.name))
+                    .cloned()
                     .collect();
+                
+                functions.extend(
+                    self.mcp_tools
+                        .iter()
+                        .filter(|v| tool_names.contains(&v.name))
+                        .cloned()
+                );
+            } else {
+                // By default if function_calling is true but use_tools is None, 
+                // we might want to include all MCP tools if that's the desired behavior, 
+                // but following existing logic for local functions (which requires use_tools or all)
+                // we'll stick to what's requested.
             }
 
             if let Some(agent) = &self.agent {
@@ -2068,7 +2131,7 @@ impl Config {
             reasoning_content.map(|v| v.to_string()),
         ));
         if !self.dry_run {
-            self.save_message_with_reasoning(input, output, reasoning_content)?;
+            self.save_message(input, output, reasoning_content)?;
         }
         Ok(())
     }
@@ -2079,11 +2142,7 @@ impl Config {
         }
     }
 
-    fn save_message(&mut self, input: &Input, output: &str) -> Result<()> {
-        self.save_message_with_reasoning(input, output, None)
-    }
-
-    fn save_message_with_reasoning(
+    fn save_message(
         &mut self,
         input: &Input,
         output: &str,

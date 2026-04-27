@@ -1,6 +1,6 @@
 # Vibe-AI: Todo-en-uno Herramienta LLM CLI
 
-[![CI](https://github.com/sigoden/vibe-ai/actions/workflows/ci.yaml/badge.svg)](https://github.com/sigoden/vibe-ai/actions/workflows/ci.yaml)
+[![CI](https://github.com/CharlieGJX/SyntheticMind/actions/workflows/ci.yaml/badge.svg)](https://github.com/CharlieGJX/SyntheticMind/actions/workflows/ci.yaml)
 [![Crates](https://img.shields.io/crates/v/vibe-ai.svg)](https://crates.io/crates/vibe-ai)
 [![Discord](https://img.shields.io/discord/1226737085453701222?label=Discord)](https://discord.gg/mr3ZZUB9hG)
 
@@ -9,7 +9,7 @@ Vibe-AI is an all-in-one LLM CLI tool featuring Shell Assistant, CMD & REPL Mode
 
 ### Pre-built Binaries
 
-Download pre-built binaries for macOS, Linux, and Windows from [GitHub Releases](https://github.com/sigoden/vibe-ai/releases), extract them, and add the `vibe-ai` binary to your `$PATH`.
+Download pre-built binaries for macOS, Linux, and Windows from [GitHub Releases](https://github.com/CharlieGJX/SyntheticMind/releases), extract them, and add the `vibe-ai` binary to your `$PATH`.
 
 ## Features
 
@@ -84,9 +84,20 @@ Function calling supercharges LLMs by connecting them to external tools and data
 
 We have created a new repository [https://github.com/sigoden/llm-functions](https://github.com/sigoden/llm-functions) to help you make the most of this feature.
 
-#### AI Tools & MCP
+#### AI Tools & MCP (Native Host)
 
-Integrate external tools to automate tasks, retrieve information, and perform actions directly within your workflow.
+Vibe-AI acts as a native **MCP (Model Context Protocol)** host, allowing you to connect to any MCP server to extend LLM capabilities with tools.
+
+To use MCP servers, add them to your `config.yaml`:
+
+```yaml
+mcp_servers:
+  sqlite:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-sqlite", "--db", "path/to/db"]
+```
+
+In the REPL, you can use `.mcp status` to see available tools and `.mcp reload` to refresh them.
 
 ![vibe-ai-tool](https://github.com/user-attachments/assets/7459a111-7258-4ef0-a2dd-624d0f1b4f92)
 
@@ -139,24 +150,24 @@ A web platform to compare different LLMs side-by-side.
 
 Vibe-AI supports custom dark and light themes, which highlight response text and code blocks.
 
-![vibe-ai-themes](https://github.com/sigoden/vibe-ai/assets/4012553/29fa8b79-031e-405d-9caa-70d24fa0acf8)
+![vibe-ai-themes](https://github.com/CharlieGJX/SyntheticMind/assets/4012553/29fa8b79-031e-405d-9caa-70d24fa0acf8)
 
 ## Documentation
 
-- [Chat-REPL Guide](https://github.com/sigoden/vibe-ai/wiki/Chat-REPL-Guide)
-- [Command-Line Guide](https://github.com/sigoden/vibe-ai/wiki/Command-Line-Guide)
-- [Role Guide](https://github.com/sigoden/vibe-ai/wiki/Role-Guide)
-- [Macro Guide](https://github.com/sigoden/vibe-ai/wiki/Macro-Guide)
-- [RAG Guide](https://github.com/sigoden/vibe-ai/wiki/RAG-Guide)
-- [Environment Variables](https://github.com/sigoden/vibe-ai/wiki/Environment-Variables)
-- [Configuration Guide](https://github.com/sigoden/vibe-ai/wiki/Configuration-Guide)
-- [Custom Theme](https://github.com/sigoden/vibe-ai/wiki/Custom-Theme)
-- [Custom REPL Prompt](https://github.com/sigoden/vibe-ai/wiki/Custom-REPL-Prompt)
-- [FAQ](https://github.com/sigoden/vibe-ai/wiki/FAQ)
+- [Chat-REPL Guide](https://github.com/CharlieGJX/SyntheticMind/wiki/Chat-REPL-Guide)
+- [Command-Line Guide](https://github.com/CharlieGJX/SyntheticMind/wiki/Command-Line-Guide)
+- [Role Guide](https://github.com/CharlieGJX/SyntheticMind/wiki/Role-Guide)
+- [Macro Guide](https://github.com/CharlieGJX/SyntheticMind/wiki/Macro-Guide)
+- [RAG Guide](https://github.com/CharlieGJX/SyntheticMind/wiki/RAG-Guide)
+- [Environment Variables](https://github.com/CharlieGJX/SyntheticMind/wiki/Environment-Variables)
+- [Configuration Guide](https://github.com/CharlieGJX/SyntheticMind/wiki/Configuration-Guide)
+- [Custom Theme](https://github.com/CharlieGJX/SyntheticMind/wiki/Custom-Theme)
+- [Custom REPL Prompt](https://github.com/CharlieGJX/SyntheticMind/wiki/Custom-REPL-Prompt)
+- [FAQ](https://github.com/CharlieGJX/SyntheticMind/wiki/FAQ)
 
 ## License
 
-Copyright (c) 2023-2025 vibe-ai-developers.
+Copyright (c) 2023-2026 vibe-ai-developers.
 
 Vibe-AI is made available under the terms of either the MIT License or the Apache License 2.0, at your option.
 

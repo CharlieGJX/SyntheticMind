@@ -61,7 +61,7 @@ Register-ArgumentCompleter -Native -CommandName 'vibe-ai' -ScriptBlock {
         }
     })
 
-    function Get-AichatValues($arg) {
+    function Get-VibeAiValues($arg) {
         $(vibe-ai $arg) -split '\n' | ForEach-Object { [CompletionResult]::new($_) }
     }
 
@@ -73,17 +73,17 @@ Register-ArgumentCompleter -Native -CommandName 'vibe-ai' -ScriptBlock {
         $flag = $commandElements[$commandElements.Count-$offset].ToString()
         dump-args $flag ($flag -eq "-R") > /tmp/file1
         if ($flag -ceq "-m" -or $flag -eq "--model") {
-            $completions = Get-AichatValues "--list-models"
+            $completions = Get-VibeAiValues "--list-models"
         } elseif ($flag -ceq "-r" -or $flag -eq "--role") {
-            $completions = Get-AichatValues "--list-roles"
+            $completions = Get-VibeAiValues "--list-roles"
         } elseif ($flag -ceq "-s" -or $flag -eq "--session") {
-            $completions = Get-AichatValues "--list-sessions"
+            $completions = Get-VibeAiValues "--list-sessions"
         } elseif ($flag -ceq "-a" -or $flag -eq "--agent") {
-            $completions = Get-AichatValues "--list-agents"
+            $completions = Get-VibeAiValues "--list-agents"
         } elseif ($flag -eq "--rag") {
-            $completions = Get-AichatValues "--list-rags"
+            $completions = Get-VibeAiValues "--list-rags"
         } elseif ($flag -eq "--macro") {
-            $completions = Get-AichatValues "--list-macros"
+            $completions = Get-VibeAiValues "--list-macros"
         } elseif ($flag -ceq "-f" -or $flag -eq "--file") {
             $completions = @()
         }
